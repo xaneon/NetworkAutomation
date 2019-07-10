@@ -1,4 +1,4 @@
-from folium import Map
+from folium import Map, DivIcon, Marker
 from folium.plugins import HeatMap
 import pandas as pd
 import numpy as np
@@ -41,10 +41,12 @@ list_of_cities = ["Dietzenbach", "Rödermark", "Rodgau", "Frankfurt", "Wiesbaden
                   "Monaco", "Marseille", "Wien", "Potsdam", "Cottbus", "Budapest",
                   "Nantes", "Madrid", "Rome", "Naples", "London", "Amsterdam", "Warsaw"]
 
+
 date_today = datetime.today()
 date_today_str = date_today.strftime("%Y%m%d")
 
 data = defaultdict(list)
+marker = list()
 for city in list_of_cities:
     curr_url = f"{baseurl}weather?q={city}&units={units}&APPID={key}"
     data["cities"].append(city)
@@ -55,18 +57,24 @@ for city in list_of_cities:
     data["lat"].append(tmp["coord"]["lat"])
     data["temp"].append(tmp["main"]["temp"]) # temperature
     time.sleep(1) # wait 1 sec for API requirements
+    icon = DivIcon(html=f'{tmp["main"]["temp"]}')
+    # marker.append(Marker([tmp["coord"]["lat"], tmp["coord"]["lon"]]))
 
 # setup basemap
 basemap = Map(location=[data["lat"][0], data["lon"][0]],
               control_scale=True, zoom_start=6,
               tiles="Stamen Toner")
 
+# for m in marker: m.add_to(basemap)
+
 # create dataframe
 df = pd.DataFrame(data)
 print(df[["lat", "lon", "temp"]])
 print(df[["lat", "lon", "temp"]].groupby(["lat", "lon"]))
 print(df[["lat", "lon", "temp"]].groupby(["lat", "lon"]).sum())
-maplist = (df[["lat", "lon", "temp"]].groupby(["lat", "lon"]).sum().reset_index().values.tolist())
+# maplist = (df[["lat", "lon", "temp"]].groupby(["lat", "lon"]).sum().reset_index().values.tolist())
+maplist = (df[["lat", "lon", "temp"]].groupby(["lat", "lon"]).min().reset_index().values.tolist())
+# maplist = (df[["lat", "lon", "temp"]].groupby(["lat", "lon"]).min().reset_index().values.tolist())
 print(maplist)
 
 cgradient = {np.min(df["temp"]): "blue",
@@ -83,5 +91,27 @@ HeatMap(data=maplist, radius=8, max_zoom=1,
 basemap.save("heatmap_temperatures.html")
 
 print(df.sort_values(by="temp", ascending=False).head())
+
+# we could also to our own visualisation here
+def to_rgb(x):
+    # norm = (((x - np.min(x)) / (np.max(x) + np.min(x))))
+    norm = x / np.max(x)
+    return norm
+
+df["norm"] = to_rgb(df["temp"].values)
+
+plt.figure()
+for x, y, z, c in df[["lat", "lon", "temp", "norm"]].values:
+    # plt.plot(x, y, markersize=z, alpha=0.5, marker="o")
+    plt.scatter(x, y, s=c*100, c=str(c),
+                vmin=np.min(df["norm"]),
+                vmax=np.max(df["norm"]),
+                alpha=0.9, marker="o", cmap="thermal")
+    print("Color", c)
+    plt.text(x, y, f"{z:.2f}")
+plt.xlabel("Latitude")
+plt.ylabel("Longitude")
+plt.colorbar()
+plt.savefig("bubble_plot_temperatures.png")
 
 
