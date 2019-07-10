@@ -1,6 +1,7 @@
 from folium import Map
 from folium.plugins import HeatMap
 import pandas as pd
+import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from collections import defaultdict
@@ -38,7 +39,7 @@ list_of_cities = ["Dietzenbach", "Rödermark", "Rodgau", "Frankfurt", "Wiesbaden
                   "Leipzig", "Berlin", "Jena", "Saarbrücken", "Bonn", "Münster",
                   "Bremen", "Mannheim", "Darmstadt", "Dieburg", "Rennes", "Lille", "Lyon",
                   "Monaco", "Marseille", "Wien", "Potsdam", "Cottbus", "Budapest",
-                  "Nantes"]
+                  "Nantes", "Madrid", "Rome", "Naples", "London", "Amsterdam", "Warsaw"]
 
 date_today = datetime.today()
 date_today_str = date_today.strftime("%Y%m%d")
@@ -57,7 +58,8 @@ for city in list_of_cities:
 
 # setup basemap
 basemap = Map(location=[data["lat"][0], data["lon"][0]],
-              control_scale=True, zoom_start=6)
+              control_scale=True, zoom_start=6,
+              tiles="Stamen Toner")
 
 # create dataframe
 df = pd.DataFrame(data)
@@ -67,7 +69,19 @@ print(df[["lat", "lon", "temp"]].groupby(["lat", "lon"]).sum())
 maplist = (df[["lat", "lon", "temp"]].groupby(["lat", "lon"]).sum().reset_index().values.tolist())
 print(maplist)
 
-HeatMap(data=maplist, radius=8, max_zoom=6).add_to(basemap)
+cgradient = {np.min(df["temp"]): "blue",
+             np.mean(df["temp"]): "lime",
+             np.max(df["temp"]): "red"}
+cgradient = None
+
+HeatMap(data=maplist, radius=8, max_zoom=1,
+        min_val=np.min(df["temp"]),
+        max_val=np.max(df["temp"]),
+        min_opacity=.1,
+        gradient=cgradient,
+        blur=15).add_to(basemap)
 basemap.save("heatmap_temperatures.html")
+
+print(df.sort_values(by="temp", ascending=False).head())
 
 
